@@ -1,8 +1,11 @@
-APP_NAME := CodexUsageViewer
+APP_NAME := TokenScope
 BUILD_DIR := .build/release
 APP_DIR := $(BUILD_DIR)/$(APP_NAME).app
 CONTENTS := $(APP_DIR)/Contents
 MACOS := $(CONTENTS)/MacOS
+RESOURCES := $(CONTENTS)/Resources
+ICON_FILE := Assets/AppIcon.icns
+ICON_SCRIPT := scripts/generate_app_icon.swift
 
 .PHONY: build run test app clean
 
@@ -15,10 +18,14 @@ run:
 test:
 	swift build
 
-app: build
+$(ICON_FILE): $(ICON_SCRIPT)
+	swift "$(ICON_SCRIPT)" "$(ICON_FILE)"
+
+app: build $(ICON_FILE)
 	rm -rf "$(APP_DIR)"
-	mkdir -p "$(MACOS)"
+	mkdir -p "$(MACOS)" "$(RESOURCES)"
 	cp "$(BUILD_DIR)/$(APP_NAME)" "$(MACOS)/$(APP_NAME)"
+	cp "$(ICON_FILE)" "$(RESOURCES)/AppIcon.icns"
 	printf '%s\n' \
 	'<?xml version="1.0" encoding="UTF-8"?>' \
 	'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
@@ -27,9 +34,11 @@ app: build
 	'  <key>CFBundleExecutable</key>' \
 	'  <string>$(APP_NAME)</string>' \
 	'  <key>CFBundleIdentifier</key>' \
-	'  <string>local.codex.usage-viewer</string>' \
+	'  <string>local.tokenscope.app</string>' \
 	'  <key>CFBundleName</key>' \
 	'  <string>$(APP_NAME)</string>' \
+	'  <key>CFBundleIconFile</key>' \
+	'  <string>AppIcon</string>' \
 	'  <key>CFBundlePackageType</key>' \
 	'  <string>APPL</string>' \
 	'  <key>CFBundleShortVersionString</key>' \

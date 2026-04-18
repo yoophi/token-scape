@@ -17,16 +17,23 @@ enum UsageFormatters {
 
     static func duration(_ seconds: TimeInterval) -> String {
         let total = max(0, Int(seconds.rounded()))
-        let hours = total / 3600
+        let days = total / 86_400
+        let hours = (total % 86_400) / 3600
         let minutes = (total % 3600) / 60
         let seconds = total % 60
 
-        if hours >= 24 {
-            let days = hours / 24
-            let remainingHours = hours % 24
-            return String(format: "%dd %02dh %02dm", days, remainingHours, minutes)
+        if days > 0 {
+            return String(format: "%dd %02d:%02d:%02d", days, hours, minutes, seconds)
         }
 
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+
+    static func hoursMinutesSeconds(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let seconds = total % 60
         return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
 

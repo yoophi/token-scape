@@ -1,9 +1,9 @@
 import SwiftUI
 
 extension View {
-    func cardStyle() -> some View {
+    func cardStyle(padding: CGFloat = 16) -> some View {
         self
-            .padding(16)
+            .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(nsColor: .controlBackgroundColor))
             .clipShape(RoundedRectangle(cornerRadius: 8))

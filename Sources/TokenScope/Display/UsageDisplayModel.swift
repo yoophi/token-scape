@@ -1,6 +1,11 @@
 import CodexUsageCore
 import SwiftUI
 
+extension Color {
+    static let tokenScopeCodex = Color(red: 16 / 255, green: 163 / 255, blue: 127 / 255)
+    static let tokenScopeClaude = Color(red: 217 / 255, green: 119 / 255, blue: 87 / 255)
+}
+
 enum UsageViewMode: String, CaseIterable, Identifiable {
     case simple
     case detailed
@@ -29,6 +34,39 @@ enum AutoRefreshInterval: TimeInterval, CaseIterable, Identifiable {
             return "1분"
         case .fiveMinutes:
             return "5분"
+        }
+    }
+}
+
+enum AutoRefreshOption: String, CaseIterable, Identifiable {
+    case oneMinute
+    case fiveMinutes
+    case off
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .oneMinute:
+            return "1분"
+        case .fiveMinutes:
+            return "5분"
+        case .off:
+            return "안함"
+        }
+    }
+
+    init(isEnabled: Bool, interval: AutoRefreshInterval) {
+        guard isEnabled else {
+            self = .off
+            return
+        }
+
+        switch interval {
+        case .oneMinute:
+            self = .oneMinute
+        case .fiveMinutes:
+            self = .fiveMinutes
         }
     }
 }
@@ -81,9 +119,9 @@ enum UsageDisplayMapper {
         UsageProductDisplay(
             title: "Codex",
             systemImage: "terminal",
-            accent: .green,
-            shortWindow: codexWindow("5시간 창", "짧은 기간 사용량", limit: snapshot.primary, now: now),
-            weeklyWindow: codexWindow("주간 창", "긴 기간 사용량", limit: snapshot.secondary, now: now),
+            accent: .tokenScopeCodex,
+            shortWindow: codexWindow("5시간 창", "짧은 기간 사용량", limit: snapshot.primary, now: now, usesClockDuration: true),
+            weeklyWindow: codexWindow("주간 창", "긴 기간 사용량", limit: snapshot.secondary, now: now, usesClockDuration: false),
             tokens: snapshot.totalTokenUsage.map { usage in
                 TokenBreakdownDisplay(
                     total: usage.totalTokens,
@@ -107,9 +145,9 @@ enum UsageDisplayMapper {
         UsageProductDisplay(
             title: "Claude Code",
             systemImage: "sparkles",
-            accent: .purple,
-            shortWindow: claudeWindow("5시간 창", "세션 블록", block: snapshot.fiveHourBlock, window: 5 * 3600, now: now),
-            weeklyWindow: claudeWindow("주간 창", "7일 블록", block: snapshot.weeklyBlock, window: 7 * 24 * 3600, now: now),
+            accent: .tokenScopeClaude,
+            shortWindow: claudeWindow("5시간 창", "세션 블록", block: snapshot.fiveHourBlock, window: 5 * 3600, now: now, usesClockDuration: true),
+            weeklyWindow: claudeWindow("주간 창", "7일 블록", block: snapshot.weeklyBlock, window: 7 * 24 * 3600, now: now, usesClockDuration: false),
             tokens: claudeTokens(snapshot),
             activityLabel: "\(UsageFormatters.tokens(snapshot.entryCount))개 메시지",
             planLabel: nil,
@@ -122,14 +160,18 @@ enum UsageDisplayMapper {
         _ title: String,
         _ subtitle: String,
         limit: UsageSnapshot.Limit?,
-        now: Date
+        now: Date,
+        usesClockDuration: Bool
     ) -> UsageWindowDisplay? {
         guard let limit else {
             return nil
         }
 
+        let remainingText = limit.resetsAt.map {
+            formatRemaining($0.timeIntervalSince(now), usesClockDuration: usesClockDuration)
+        } ?? "--"
         let resetLabel = limit.resetsAt.map {
-            "\(UsageFormatters.duration($0.timeIntervalSince(now))) 남음 · \(UsageFormatters.clock($0)) 리셋"
+            "\(formatRemaining($0.timeIntervalSince(now), usesClockDuration: usesClockDuration)) 남음 · \(UsageFormatters.clock($0)) 리셋"
         } ?? "리셋 정보 없음"
 
         let windowLabel = limit.windowMinutes.map { minutes in
@@ -139,7 +181,7 @@ enum UsageDisplayMapper {
         return UsageWindowDisplay(
             title: title,
             subtitle: subtitle,
-            remainingTimeText: limit.resetsAt.map { UsageFormatters.duration($0.timeIntervalSince(now)) } ?? "--",
+            remainingTimeText: remainingText,
             remainingPercentText: "\(Int(limit.remainingPercent.rounded()))%",
             supportingMetric: "사용 \(UsageFormatters.percent(limit.usedPercent))%",
             progressValue: max(0, min(1, limit.usedPercent / 100)),
@@ -160,7 +202,8 @@ enum UsageDisplayMapper {
         _ subtitle: String,
         block: ClaudeUsageBlock?,
         window: TimeInterval,
-        now: Date
+        now: Date,
+        usesClockDuration: Bool
     ) -> UsageWindowDisplay? {
         guard let block else {
             return UsageWindowDisplay(
@@ -185,12 +228,13 @@ enum UsageDisplayMapper {
         let progress = total > 0 ? elapsed / total : 0
         let remaining = block.timeRemaining(from: now)
         let remainingPercent = total > 0 ? max(0, min(100, (remaining / total) * 100)) : 0
-        let resetLabel = "\(UsageFormatters.duration(remaining)) 남음 · \(UsageFormatters.clock(block.end)) 리셋"
+        let remainingText = formatRemaining(remaining, usesClockDuration: usesClockDuration)
+        let resetLabel = "\(remainingText) 남음 · \(UsageFormatters.clock(block.end)) 리셋"
 
         return UsageWindowDisplay(
             title: title,
             subtitle: subtitle,
-            remainingTimeText: UsageFormatters.duration(remaining),
+            remainingTimeText: remainingText,
             remainingPercentText: "\(Int(remainingPercent.rounded()))%",
             supportingMetric: "\(UsageFormatters.tokens(block.totalTokens)) tokens",
             progressValue: progress,
@@ -199,11 +243,11 @@ enum UsageDisplayMapper {
             detailRows: [
                 UsageDetailRow(label: "시작", value: UsageFormatters.fullDate(block.start)),
                 UsageDetailRow(label: "리셋", value: UsageFormatters.fullDate(block.end)),
-                UsageDetailRow(label: "남은 시간", value: UsageFormatters.duration(remaining)),
+                UsageDetailRow(label: "남은 시간", value: remainingText),
                 UsageDetailRow(label: "사용 토큰", value: UsageFormatters.tokens(block.totalTokens)),
                 UsageDetailRow(label: "메시지 수", value: "\(block.messageCount)")
             ],
-            progressColor: .purple
+            progressColor: .tokenScopeClaude
         )
     }
 
@@ -232,7 +276,15 @@ enum UsageDisplayMapper {
         case ..<25:
             return .orange
         default:
-            return .green
+            return .tokenScopeCodex
         }
+    }
+
+    private static func formatRemaining(_ seconds: TimeInterval, usesClockDuration: Bool) -> String {
+        if usesClockDuration {
+            return UsageFormatters.hoursMinutesSeconds(seconds)
+        }
+
+        return UsageFormatters.duration(seconds)
     }
 }

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 struct UserPreferences {
@@ -13,6 +14,14 @@ final class UserPreferencesStore {
         static let isAutoRefreshEnabled = "isAutoRefreshEnabled"
         static let autoRefreshInterval = "autoRefreshInterval"
         static let isAlwaysOnTop = "isAlwaysOnTop"
+
+        static func windowWidth(for viewMode: UsageViewMode) -> String {
+            "windowWidth.\(viewMode.rawValue)"
+        }
+
+        static func windowHeight(for viewMode: UsageViewMode) -> String {
+            "windowHeight.\(viewMode.rawValue)"
+        }
     }
 
     private let defaults: UserDefaults
@@ -44,6 +53,30 @@ final class UserPreferencesStore {
 
     func saveAlwaysOnTop(_ enabled: Bool) {
         defaults.set(enabled, forKey: Key.isAlwaysOnTop)
+    }
+
+    func loadWindowSize(for viewMode: UsageViewMode) -> CGSize? {
+        let widthKey = Key.windowWidth(for: viewMode)
+        let heightKey = Key.windowHeight(for: viewMode)
+
+        guard defaults.object(forKey: widthKey) != nil,
+              defaults.object(forKey: heightKey) != nil
+        else {
+            return nil
+        }
+
+        let width = defaults.double(forKey: widthKey)
+        let height = defaults.double(forKey: heightKey)
+        guard width > 0, height > 0 else {
+            return nil
+        }
+
+        return CGSize(width: width, height: height)
+    }
+
+    func saveWindowSize(_ size: CGSize, for viewMode: UsageViewMode) {
+        defaults.set(size.width, forKey: Key.windowWidth(for: viewMode))
+        defaults.set(size.height, forKey: Key.windowHeight(for: viewMode))
     }
 
     private func loadViewMode() -> UsageViewMode {

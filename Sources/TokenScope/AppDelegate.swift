@@ -3,8 +3,9 @@ import CodexUsageCore
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let store = UsageStore()
+    private let preferencesStore = UserPreferencesStore()
     private var window: NSWindow?
     private var statusItem: NSStatusItem?
     private var statusMenu: NSMenu?
@@ -14,11 +15,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hostingController = NSHostingController(rootView: contentView)
 
         let window = NSWindow(contentViewController: hostingController)
-        window.title = "AI Code Usage Viewer"
-        window.setContentSize(Self.windowSize(for: store.viewMode))
+        window.title = "TokenScope"
+        window.setContentSize(windowSize(for: store.viewMode))
         window.minSize = Self.minimumWindowSize(for: store.viewMode)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.isReleasedWhenClosed = false
+        window.delegate = self
         window.center()
         window.makeKeyAndOrderFront(nil)
         self.window = window
@@ -29,6 +31,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        saveCurrentWindowSize()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        saveCurrentWindowSize()
     }
 
     private func setupMenuBar() {
@@ -63,7 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        let contentSize = Self.windowSize(for: viewMode)
+        let contentSize = windowSize(for: viewMode)
         let currentFrame = window.frame
         let newFrame = NSRect(
             x: currentFrame.midX - contentSize.width / 2,
@@ -80,10 +90,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window?.level = isAlwaysOnTop ? .floating : .normal
     }
 
-    private static func windowSize(for viewMode: UsageViewMode) -> NSSize {
+    private func windowSize(for viewMode: UsageViewMode) -> NSSize {
+        let minimumSize = Self.minimumWindowSize(for: viewMode)
+        if let savedSize = preferencesStore.loadWindowSize(for: viewMode) {
+            return NSSize(
+                width: max(savedSize.width, minimumSize.width),
+                height: max(savedSize.height, minimumSize.height)
+            )
+        }
+
+        return Self.defaultWindowSize(for: viewMode)
+    }
+
+    private static func defaultWindowSize(for viewMode: UsageViewMode) -> NSSize {
         switch viewMode {
         case .simple:
-            return NSSize(width: 1_060, height: 610)
+            return NSSize(width: 960, height: 560)
         case .detailed:
             return NSSize(width: 1_180, height: 820)
         }
@@ -92,10 +114,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static func minimumWindowSize(for viewMode: UsageViewMode) -> NSSize {
         switch viewMode {
         case .simple:
-            return NSSize(width: 920, height: 520)
+            return NSSize(width: 900, height: 500)
         case .detailed:
-            return NSSize(width: 980, height: 680)
+            return NSSize(width: 1_080, height: 680)
         }
+    }
+
+    private func saveCurrentWindowSize() {
+        guard let window else {
+            return
+        }
+
+        let contentSize = window.contentRect(forFrameRect: window.frame).size
+        preferencesStore.saveWindowSize(contentSize, for: store.viewMode)
     }
 
     private func updateStatusTitle(_ snapshot: UsageSnapshot?) {

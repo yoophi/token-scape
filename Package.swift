@@ -3,18 +3,18 @@
 import PackageDescription
 
 let package = Package(
-    name: "CodexUsageViewer",
+    name: "TokenScope",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "CodexUsageViewer", targets: ["CodexUsageViewer"]),
+        .executable(name: "TokenScope", targets: ["TokenScope"]),
         .library(name: "CodexUsageCore", targets: ["CodexUsageCore"])
     ],
     targets: [
         .target(name: "CodexUsageCore"),
         .executableTarget(
-            name: "CodexUsageViewer",
+            name: "TokenScope",
             dependencies: ["CodexUsageCore"]
         )
     ]

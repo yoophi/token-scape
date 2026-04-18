@@ -43,6 +43,24 @@ final class UsageStore: ObservableObject {
     var onAlwaysOnTopChange: ((Bool) -> Void)?
     var onViewModeChange: ((UsageViewMode) -> Void)?
 
+    var autoRefreshOption: AutoRefreshOption {
+        get {
+            AutoRefreshOption(isEnabled: isAutoRefreshEnabled, interval: autoRefreshInterval)
+        }
+        set {
+            switch newValue {
+            case .oneMinute:
+                autoRefreshInterval = .oneMinute
+                isAutoRefreshEnabled = true
+            case .fiveMinutes:
+                autoRefreshInterval = .fiveMinutes
+                isAutoRefreshEnabled = true
+            case .off:
+                isAutoRefreshEnabled = false
+            }
+        }
+    }
+
     init(preferencesStore: UserPreferencesStore = UserPreferencesStore()) {
         self.preferencesStore = preferencesStore
         let preferences = preferencesStore.load()

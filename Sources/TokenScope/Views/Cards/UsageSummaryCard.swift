@@ -5,7 +5,7 @@ struct UsageSummaryCard: View {
     let mode: UsageViewMode
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: sectionSpacing) {
             header
 
             if let shortWindow = display.shortWindow {
@@ -16,10 +16,16 @@ struct UsageSummaryCard: View {
                 UnifiedUsageWindowCard(window: weeklyWindow, mode: mode)
             }
 
-            if mode == .detailed {
+            if mode == .simple {
+                compactTokenSummary
+            } else {
                 detailContent
             }
         }
+    }
+
+    private var sectionSpacing: CGFloat {
+        mode == .simple ? 10 : 14
     }
 
     private var header: some View {
@@ -36,6 +42,29 @@ struct UsageSummaryCard: View {
                     .background(Capsule().fill(display.accent.opacity(0.14)))
                     .foregroundStyle(display.accent)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var compactTokenSummary: some View {
+        if let tokens = display.tokens {
+            HStack(spacing: 10) {
+                Label("토큰", systemImage: "number")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                Text(UsageFormatters.tokens(tokens.total))
+                    .font(.system(.body, design: .rounded).weight(.bold))
+                    .monospacedDigit()
+                Spacer()
+                if let activityLabel = display.activityLabel {
+                    Text(activityLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            }
+            .cardStyle(padding: 10)
         }
     }
 
@@ -59,7 +88,7 @@ struct UnifiedUsageWindowCard: View {
     let mode: UsageViewMode
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: verticalSpacing) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(window.title)
@@ -86,6 +115,8 @@ struct UnifiedUsageWindowCard: View {
             Text(window.resetLabel)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .frame(maxWidth: .infinity, alignment: .trailing)
 
             if mode == .detailed {
@@ -93,7 +124,15 @@ struct UnifiedUsageWindowCard: View {
                 detailRows
             }
         }
-        .cardStyle()
+        .cardStyle(padding: cardPadding)
+    }
+
+    private var cardPadding: CGFloat {
+        mode == .simple ? 10 : 16
+    }
+
+    private var verticalSpacing: CGFloat {
+        mode == .simple ? 8 : 12
     }
 
     private var remainingMetrics: some View {
@@ -101,7 +140,7 @@ struct UnifiedUsageWindowCard: View {
             metricRow(label: "남은 시간", value: window.remainingTimeText, prominent: true)
             metricRow(label: "남은 비율", value: window.remainingPercentText, prominent: false)
         }
-        .frame(width: 150, alignment: .trailing)
+        .frame(width: mode == .simple ? 128 : 150, alignment: .trailing)
     }
 
     private func metricRow(label: String, value: String, prominent: Bool) -> some View {
@@ -110,11 +149,18 @@ struct UnifiedUsageWindowCard: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.system(size: prominent ? 22 : 16, weight: .bold, design: .rounded))
+                .font(.system(size: metricFontSize(prominent: prominent), weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
+    }
+
+    private func metricFontSize(prominent: Bool) -> CGFloat {
+        if mode == .simple {
+            return prominent ? 18 : 14
+        }
+        return prominent ? 22 : 16
     }
 
     private var detailRows: some View {
