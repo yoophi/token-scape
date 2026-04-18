@@ -16,7 +16,7 @@ run:
 	swift run $(APP_NAME)
 
 test:
-	swift build
+	swift run UsageTests
 
 $(ICON_FILE): $(ICON_SCRIPT)
 	swift "$(ICON_SCRIPT)" "$(ICON_FILE)"

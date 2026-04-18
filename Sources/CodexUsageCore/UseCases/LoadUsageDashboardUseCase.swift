@@ -6,9 +6,9 @@ public final class LoadUsageDashboardUseCase {
     private let clock: DateProviding
 
     public init(
-        codexReader: CodexUsageReading = LocalCodexUsageLogAdapter(),
-        claudeReader: ClaudeUsageReading = LocalClaudeUsageLogAdapter(),
-        clock: DateProviding = SystemClock()
+        codexReader: CodexUsageReading,
+        claudeReader: ClaudeUsageReading,
+        clock: DateProviding
     ) {
         self.codexReader = codexReader
         self.claudeReader = claudeReader

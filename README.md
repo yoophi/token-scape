@@ -76,7 +76,7 @@ open .build/release/TokenScope.app
 make test
 ```
 
-현재 Command Line Tools-only 환경에서는 `make test`가 compile check로 동작합니다.
+`make test`는 XCTest 없이 동작하는 `UsageTests` executable test runner를 실행합니다.
 
 ## 메뉴바
 

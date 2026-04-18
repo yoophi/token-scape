@@ -235,7 +235,7 @@ SwiftUI view는 로그 파일을 직접 파싱하면 안 됩니다.
 - 코드는 읽기 쉽고 유지보수하기 쉬워야 합니다.
 - 하나의 큰 `main.swift`에 모든 코드를 몰아넣지 말고, 책임별로 파일을 분리합니다.
 - Swift 6 command line tools에서 컴파일되어야 합니다.
-- Command Line Tools-only 환경에서 XCTest를 사용할 수 없다면, `make test`는 compile check로 동작해도 됩니다.
+- Command Line Tools-only 환경에서도 동작하도록 XCTest 없이 실행 가능한 test runner를 제공할 수 있습니다.
 
 ## 검증
 

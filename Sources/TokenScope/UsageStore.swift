@@ -36,9 +36,9 @@ final class UsageStore: ObservableObject {
         }
     }
 
+    private let loader: any UsageDashboardLoading
+    private let scheduler: any RefreshScheduling
     private let preferencesStore: UserPreferencesStore
-    private var tickTimer: Timer?
-    private var refreshTimer: Timer?
     var onCodexChange: ((UsageSnapshot?) -> Void)?
     var onAlwaysOnTopChange: ((Bool) -> Void)?
     var onViewModeChange: ((UsageViewMode) -> Void)?
@@ -61,7 +61,13 @@ final class UsageStore: ObservableObject {
         }
     }
 
-    init(preferencesStore: UserPreferencesStore = UserPreferencesStore()) {
+    init(
+        loader: any UsageDashboardLoading,
+        scheduler: any RefreshScheduling,
+        preferencesStore: UserPreferencesStore = UserPreferencesStore()
+    ) {
+        self.loader = loader
+        self.scheduler = scheduler
         self.preferencesStore = preferencesStore
         let preferences = preferencesStore.load()
         viewMode = preferences.viewMode
@@ -70,10 +76,8 @@ final class UsageStore: ObservableObject {
         isAlwaysOnTop = preferences.isAlwaysOnTop
 
         refresh()
-        tickTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.now = Date()
-            }
+        scheduler.startTick { [weak self] in
+            self?.now = Date()
         }
         configureRefreshTimer()
     }
@@ -84,8 +88,9 @@ final class UsageStore: ObservableObject {
         }
 
         isLoading = true
+        let loader = self.loader
         Task.detached(priority: .userInitiated) {
-            let combined = UsageLoader.load()
+            let combined = loader.load()
             await MainActor.run {
                 self.apply(combined)
             }
@@ -104,8 +109,7 @@ final class UsageStore: ObservableObject {
     }
 
     private func configureRefreshTimer() {
-        refreshTimer?.invalidate()
-        refreshTimer = nil
+        scheduler.cancelRefresh()
         nextAutoRefreshAt = nil
 
         guard isAutoRefreshEnabled else {
@@ -116,8 +120,7 @@ final class UsageStore: ObservableObject {
     }
 
     private func scheduleNextAutoRefresh() {
-        refreshTimer?.invalidate()
-        refreshTimer = nil
+        scheduler.cancelRefresh()
 
         guard isAutoRefreshEnabled else {
             nextAutoRefreshAt = nil
@@ -126,10 +129,8 @@ final class UsageStore: ObservableObject {
 
         let interval = autoRefreshInterval.rawValue
         nextAutoRefreshAt = Date().addingTimeInterval(interval)
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
-            Task { @MainActor in
-                self?.refresh()
-            }
+        scheduler.scheduleRefresh(after: interval) { [weak self] in
+            self?.refresh()
         }
     }
 }

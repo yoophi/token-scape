@@ -4,11 +4,18 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
-    private let store = UsageStore()
-    private let preferencesStore = UserPreferencesStore()
+    private let dependencies = AppDependencies.live()
     private var window: NSWindow?
     private var statusItem: NSStatusItem?
     private var statusMenu: NSMenu?
+
+    private var store: UsageStore {
+        dependencies.store
+    }
+
+    private var preferencesStore: UserPreferencesStore {
+        dependencies.preferencesStore
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let contentView = ContentView().environmentObject(store)

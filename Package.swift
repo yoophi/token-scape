@@ -16,6 +16,11 @@ let package = Package(
         .executableTarget(
             name: "TokenScope",
             dependencies: ["CodexUsageCore"]
+        ),
+        .executableTarget(
+            name: "UsageTests",
+            dependencies: ["CodexUsageCore"],
+            path: "Tests/UsageTests"
         )
     ]
 )
