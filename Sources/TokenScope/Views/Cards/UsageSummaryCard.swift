@@ -121,6 +121,8 @@ struct UnifiedUsageWindowCard: View {
 
             if mode == .detailed {
                 Divider()
+                UsageWindowPieCharts(window: window)
+                Divider()
                 detailRows
             }
         }
@@ -178,6 +180,94 @@ struct UnifiedUsageWindowCard: View {
                 }
             }
         }
+    }
+}
+
+private struct UsageWindowPieCharts: View {
+    let window: UsageWindowDisplay
+
+    var body: some View {
+        HStack(spacing: 16) {
+            UsagePieChart(
+                title: "남은 시간",
+                percent: window.timeRemainingPercent,
+                color: window.progressColor
+            )
+            UsagePieChart(
+                title: "남은 사용량",
+                percent: window.usageRemainingPercent,
+                color: window.progressColor
+            )
+        }
+    }
+}
+
+private struct UsagePieChart: View {
+    let title: String
+    let percent: Double?
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(Color.secondary.opacity(0.12))
+
+                if let normalizedPercent {
+                    PieSlice(progress: normalizedPercent)
+                        .fill(color)
+                }
+
+                Circle()
+                    .stroke(Color.secondary.opacity(0.16), lineWidth: 1)
+            }
+            .frame(width: 44, height: 44)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(percentText)
+                    .font(.system(.headline, design: .rounded).weight(.bold))
+                    .monospacedDigit()
+            }
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var normalizedPercent: Double? {
+        guard let percent else {
+            return nil
+        }
+
+        return max(0, min(1, percent / 100))
+    }
+
+    private var percentText: String {
+        guard let percent else {
+            return "--"
+        }
+
+        return "\(Int(percent.rounded()))%"
+    }
+}
+
+private struct PieSlice: Shape {
+    let progress: Double
+
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
+        let start = Angle.degrees(-90)
+        let end = Angle.degrees(-90 + 360 * progress)
+
+        var path = Path()
+        path.move(to: center)
+        path.addArc(center: center, radius: radius, startAngle: start, endAngle: end, clockwise: false)
+        path.closeSubpath()
+        return path
     }
 }
 

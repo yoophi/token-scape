@@ -93,6 +93,8 @@ struct UsageWindowDisplay {
     let progressValue: Double
     let progressLabel: String
     let resetLabel: String
+    let timeRemainingPercent: Double?
+    let usageRemainingPercent: Double?
     let detailRows: [UsageDetailRow]
     let progressColor: Color
 }
@@ -177,6 +179,7 @@ enum UsageDisplayMapper {
         let windowLabel = limit.windowMinutes.map { minutes in
             minutes >= 1_440 ? "\(minutes / 1_440)일 창" : "\(minutes / 60)시간 창"
         } ?? "창 정보 없음"
+        let timeRemainingPercent = codexTimeRemainingPercent(limit: limit, now: now)
 
         return UsageWindowDisplay(
             title: title,
@@ -187,6 +190,8 @@ enum UsageDisplayMapper {
             progressValue: max(0, min(1, limit.usedPercent / 100)),
             progressLabel: "한도 사용률",
             resetLabel: resetLabel,
+            timeRemainingPercent: timeRemainingPercent,
+            usageRemainingPercent: limit.remainingPercent,
             detailRows: [
                 UsageDetailRow(label: "창", value: windowLabel),
                 UsageDetailRow(label: "사용률", value: "\(UsageFormatters.percent(limit.usedPercent))%"),
@@ -215,6 +220,8 @@ enum UsageDisplayMapper {
                 progressValue: 0,
                 progressLabel: "시간 진행률",
                 resetLabel: "다음 메시지를 보내면 새 \(UsageFormatters.window(window)) 블록 시작",
+                timeRemainingPercent: nil,
+                usageRemainingPercent: nil,
                 detailRows: [
                     UsageDetailRow(label: "상태", value: "활성 블록 없음"),
                     UsageDetailRow(label: "창", value: UsageFormatters.window(window))
@@ -240,6 +247,8 @@ enum UsageDisplayMapper {
             progressValue: progress,
             progressLabel: "시간 진행률",
             resetLabel: resetLabel,
+            timeRemainingPercent: remainingPercent,
+            usageRemainingPercent: remainingPercent,
             detailRows: [
                 UsageDetailRow(label: "시작", value: UsageFormatters.fullDate(block.start)),
                 UsageDetailRow(label: "리셋", value: UsageFormatters.fullDate(block.end)),
@@ -249,6 +258,19 @@ enum UsageDisplayMapper {
             ],
             progressColor: .tokenScopeClaude
         )
+    }
+
+    private static func codexTimeRemainingPercent(limit: UsageSnapshot.Limit, now: Date) -> Double? {
+        guard let resetsAt = limit.resetsAt,
+              let windowMinutes = limit.windowMinutes,
+              windowMinutes > 0
+        else {
+            return nil
+        }
+
+        let total = TimeInterval(windowMinutes * 60)
+        let remaining = max(0, min(total, resetsAt.timeIntervalSince(now)))
+        return (remaining / total) * 100
     }
 
     private static func claudeTokens(_ snapshot: ClaudeUsageSnapshot) -> TokenBreakdownDisplay? {
