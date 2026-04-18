@@ -88,12 +88,14 @@ struct UsageWindowDisplay {
     let title: String
     let subtitle: String
     let remainingTimeText: String
+    let remainingPercentLabel: String
     let remainingPercentText: String
     let supportingMetric: String
     let progressValue: Double
     let progressLabel: String
     let resetLabel: String
     let timeRemainingPercent: Double?
+    let usageRemainingLabel: String
     let usageRemainingPercent: Double?
     let detailRows: [UsageDetailRow]
     let progressColor: Color
@@ -148,12 +150,30 @@ enum UsageDisplayMapper {
             title: "Claude Code",
             systemImage: "sparkles",
             accent: .tokenScopeClaude,
-            shortWindow: claudeWindow("5시간 창", "세션 블록", block: snapshot.fiveHourBlock, window: 5 * 3600, now: now, usesClockDuration: true),
-            weeklyWindow: claudeWindow("주간 창", "7일 블록", block: snapshot.weeklyBlock, window: 7 * 24 * 3600, now: now, usesClockDuration: false),
+            shortWindow: claudeWindow(
+                "5시간 창",
+                fallbackSubtitle: "세션 블록",
+                block: snapshot.fiveHourBlock,
+                limit: snapshot.usageLimits?.fiveHour,
+                limitSource: snapshot.usageLimits?.source,
+                window: 5 * 3600,
+                now: now,
+                usesClockDuration: true
+            ),
+            weeklyWindow: claudeWindow(
+                "주간 창",
+                fallbackSubtitle: "7일 블록",
+                block: snapshot.weeklyBlock,
+                limit: snapshot.usageLimits?.sevenDay,
+                limitSource: snapshot.usageLimits?.source,
+                window: 7 * 24 * 3600,
+                now: now,
+                usesClockDuration: false
+            ),
             tokens: claudeTokens(snapshot),
             activityLabel: "\(UsageFormatters.tokens(snapshot.entryCount))개 메시지",
-            planLabel: nil,
-            sourcePath: snapshot.sourcePath,
+            planLabel: snapshot.usageLimits.map { usageLimitsLabel($0) },
+            sourcePath: snapshot.usageLimits?.sourcePath ?? snapshot.sourcePath,
             loadedAt: snapshot.loadedAt
         )
     }
@@ -185,12 +205,14 @@ enum UsageDisplayMapper {
             title: title,
             subtitle: subtitle,
             remainingTimeText: remainingText,
+            remainingPercentLabel: "남은 비율",
             remainingPercentText: "\(Int(limit.remainingPercent.rounded()))%",
             supportingMetric: "사용 \(UsageFormatters.percent(limit.usedPercent))%",
             progressValue: max(0, min(1, limit.usedPercent / 100)),
             progressLabel: "한도 사용률",
             resetLabel: resetLabel,
             timeRemainingPercent: timeRemainingPercent,
+            usageRemainingLabel: "남은 사용량",
             usageRemainingPercent: limit.remainingPercent,
             detailRows: [
                 UsageDetailRow(label: "창", value: windowLabel),
@@ -204,23 +226,38 @@ enum UsageDisplayMapper {
 
     private static func claudeWindow(
         _ title: String,
-        _ subtitle: String,
+        fallbackSubtitle: String,
         block: ClaudeUsageBlock?,
+        limit: ClaudeUsageLimits.Window?,
+        limitSource: ClaudeUsageLimits.Source?,
         window: TimeInterval,
         now: Date,
         usesClockDuration: Bool
     ) -> UsageWindowDisplay? {
+        if let limit {
+            return claudeLimitWindow(
+                title,
+                limit: limit,
+                source: limitSource ?? .localEstimate,
+                window: window,
+                now: now,
+                usesClockDuration: usesClockDuration
+            )
+        }
+
         guard let block else {
             return UsageWindowDisplay(
                 title: title,
-                subtitle: subtitle,
+                subtitle: fallbackSubtitle,
                 remainingTimeText: "비활성",
+                remainingPercentLabel: "블록 잔여",
                 remainingPercentText: "--",
                 supportingMetric: "다음 메시지 대기",
                 progressValue: 0,
                 progressLabel: "시간 진행률",
                 resetLabel: "다음 메시지를 보내면 새 \(UsageFormatters.window(window)) 블록 시작",
                 timeRemainingPercent: nil,
+                usageRemainingLabel: "한도 정보",
                 usageRemainingPercent: nil,
                 detailRows: [
                     UsageDetailRow(label: "상태", value: "활성 블록 없음"),
@@ -240,23 +277,69 @@ enum UsageDisplayMapper {
 
         return UsageWindowDisplay(
             title: title,
-            subtitle: subtitle,
+            subtitle: fallbackSubtitle,
             remainingTimeText: remainingText,
+            remainingPercentLabel: "블록 잔여",
             remainingPercentText: "\(Int(remainingPercent.rounded()))%",
             supportingMetric: "\(UsageFormatters.tokens(block.totalTokens)) tokens",
             progressValue: progress,
             progressLabel: "시간 진행률",
             resetLabel: resetLabel,
             timeRemainingPercent: remainingPercent,
-            usageRemainingPercent: remainingPercent,
+            usageRemainingLabel: "한도 정보",
+            usageRemainingPercent: nil,
             detailRows: [
                 UsageDetailRow(label: "시작", value: UsageFormatters.fullDate(block.start)),
                 UsageDetailRow(label: "리셋", value: UsageFormatters.fullDate(block.end)),
                 UsageDetailRow(label: "남은 시간", value: remainingText),
+                UsageDetailRow(label: "블록 잔여", value: "\(UsageFormatters.percent(remainingPercent))%"),
                 UsageDetailRow(label: "사용 토큰", value: UsageFormatters.tokens(block.totalTokens)),
                 UsageDetailRow(label: "메시지 수", value: "\(block.messageCount)")
             ],
             progressColor: .tokenScopeClaude
+        )
+    }
+
+    private static func claudeLimitWindow(
+        _ title: String,
+        limit: ClaudeUsageLimits.Window,
+        source: ClaudeUsageLimits.Source,
+        window: TimeInterval,
+        now: Date,
+        usesClockDuration: Bool
+    ) -> UsageWindowDisplay {
+        let remainingText = limit.resetsAt.map {
+            formatRemaining($0.timeIntervalSince(now), usesClockDuration: usesClockDuration)
+        } ?? "--"
+        let resetLabel = limit.resetsAt.map {
+            "\(formatRemaining($0.timeIntervalSince(now), usesClockDuration: usesClockDuration)) 남음 · \(UsageFormatters.clock($0)) 리셋"
+        } ?? "리셋 정보 없음"
+        let timeRemainingPercent = limit.resetsAt.map {
+            remainingTimePercent(resetsAt: $0, window: window, now: now)
+        }
+
+        let sourceText = sourceDescription(source)
+        return UsageWindowDisplay(
+            title: title,
+            subtitle: sourceText,
+            remainingTimeText: remainingText,
+            remainingPercentLabel: "남은 비율",
+            remainingPercentText: "\(Int(limit.remainingPercent.rounded()))%",
+            supportingMetric: "사용 \(UsageFormatters.percent(limit.usedPercent))%",
+            progressValue: max(0, min(1, limit.usedPercent / 100)),
+            progressLabel: "한도 사용률",
+            resetLabel: resetLabel,
+            timeRemainingPercent: timeRemainingPercent,
+            usageRemainingLabel: "남은 사용량",
+            usageRemainingPercent: limit.remainingPercent,
+            detailRows: [
+                UsageDetailRow(label: "출처", value: sourceText),
+                UsageDetailRow(label: "사용률", value: "\(UsageFormatters.percent(limit.usedPercent))%"),
+                UsageDetailRow(label: "남은 비율", value: "\(UsageFormatters.percent(limit.remainingPercent))%"),
+                UsageDetailRow(label: "시간 잔여", value: timeRemainingPercent.map { "\(UsageFormatters.percent($0))%" } ?? "--"),
+                UsageDetailRow(label: "리셋", value: resetLabel)
+            ],
+            progressColor: remainingColor(limit.remainingPercent, healthyColor: .tokenScopeClaude)
         )
     }
 
@@ -271,6 +354,15 @@ enum UsageDisplayMapper {
         let total = TimeInterval(windowMinutes * 60)
         let remaining = max(0, min(total, resetsAt.timeIntervalSince(now)))
         return (remaining / total) * 100
+    }
+
+    private static func remainingTimePercent(resetsAt: Date, window: TimeInterval, now: Date) -> Double {
+        guard window > 0 else {
+            return 0
+        }
+
+        let remaining = max(0, min(window, resetsAt.timeIntervalSince(now)))
+        return (remaining / window) * 100
     }
 
     private static func claudeTokens(_ snapshot: ClaudeUsageSnapshot) -> TokenBreakdownDisplay? {
@@ -291,14 +383,48 @@ enum UsageDisplayMapper {
         )
     }
 
-    private static func remainingColor(_ remainingPercent: Double) -> Color {
+    private static func sourceLabel(_ source: ClaudeUsageLimits.Source) -> String {
+        switch source {
+        case .oauthAPI:
+            return "OAUTH"
+        case .ccusageCache:
+            return "CCUSAGE"
+        case .statuslineCache:
+            return "STATUSLINE"
+        case .localEstimate:
+            return "로컬 추정"
+        }
+    }
+
+    private static func sourceDescription(_ source: ClaudeUsageLimits.Source) -> String {
+        switch source {
+        case .oauthAPI:
+            return "Anthropic OAuth API"
+        case .ccusageCache:
+            return "ccusage 캐시"
+        case .statuslineCache:
+            return "statusline 캐시"
+        case .localEstimate:
+            return "로컬 추정"
+        }
+    }
+
+    private static func usageLimitsLabel(_ limits: ClaudeUsageLimits) -> String {
+        guard limits.source == .oauthAPI, let planName = limits.planName else {
+            return sourceLabel(limits.source)
+        }
+
+        return "\(sourceLabel(limits.source)) · \(planName)"
+    }
+
+    private static func remainingColor(_ remainingPercent: Double, healthyColor: Color = .tokenScopeCodex) -> Color {
         switch remainingPercent {
         case ..<10:
             return .red
         case ..<25:
             return .orange
         default:
-            return .tokenScopeCodex
+            return healthyColor
         }
     }
 

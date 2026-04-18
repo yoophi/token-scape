@@ -62,6 +62,7 @@ public struct ClaudeUsageBlock: Equatable, Sendable {
 public struct ClaudeUsageSnapshot: Equatable, Sendable {
     public let fiveHourBlock: ClaudeUsageBlock?
     public let weeklyBlock: ClaudeUsageBlock?
+    public let usageLimits: ClaudeUsageLimits?
     public let entryCount: Int
     public let sourcePath: String
     public let loadedAt: Date
@@ -69,15 +70,83 @@ public struct ClaudeUsageSnapshot: Equatable, Sendable {
     public init(
         fiveHourBlock: ClaudeUsageBlock?,
         weeklyBlock: ClaudeUsageBlock?,
+        usageLimits: ClaudeUsageLimits? = nil,
         entryCount: Int,
         sourcePath: String,
         loadedAt: Date = Date()
     ) {
         self.fiveHourBlock = fiveHourBlock
         self.weeklyBlock = weeklyBlock
+        self.usageLimits = usageLimits
         self.entryCount = entryCount
         self.sourcePath = sourcePath
         self.loadedAt = loadedAt
+    }
+}
+
+public struct ClaudeUsageLimits: Equatable, Sendable {
+    public enum Source: String, Sendable {
+        case oauthAPI
+        case ccusageCache
+        case statuslineCache
+        case localEstimate
+    }
+
+    public struct Window: Equatable, Sendable {
+        public let usedPercent: Double
+        public let resetsAt: Date?
+
+        public init(usedPercent: Double, resetsAt: Date?) {
+            self.usedPercent = max(0, min(100, usedPercent))
+            self.resetsAt = resetsAt
+        }
+
+        public var remainingPercent: Double {
+            max(0, min(100, 100 - usedPercent))
+        }
+    }
+
+    public struct ExtraUsage: Equatable, Sendable {
+        public let isEnabled: Bool
+        public let monthlyLimit: Double?
+        public let usedCredits: Double?
+        public let utilization: Double?
+
+        public init(isEnabled: Bool, monthlyLimit: Double?, usedCredits: Double?, utilization: Double?) {
+            self.isEnabled = isEnabled
+            self.monthlyLimit = monthlyLimit
+            self.usedCredits = usedCredits
+            self.utilization = utilization
+        }
+    }
+
+    public let source: Source
+    public let sourcePath: String
+    public let planName: String?
+    public let fiveHour: Window?
+    public let sevenDay: Window?
+    public let sevenDaySonnet: Window?
+    public let sevenDayOpus: Window?
+    public let extraUsage: ExtraUsage?
+
+    public init(
+        source: Source,
+        sourcePath: String,
+        planName: String? = nil,
+        fiveHour: Window?,
+        sevenDay: Window?,
+        sevenDaySonnet: Window? = nil,
+        sevenDayOpus: Window? = nil,
+        extraUsage: ExtraUsage? = nil
+    ) {
+        self.source = source
+        self.sourcePath = sourcePath
+        self.planName = planName
+        self.fiveHour = fiveHour
+        self.sevenDay = sevenDay
+        self.sevenDaySonnet = sevenDaySonnet
+        self.sevenDayOpus = sevenDayOpus
+        self.extraUsage = extraUsage
     }
 }
 

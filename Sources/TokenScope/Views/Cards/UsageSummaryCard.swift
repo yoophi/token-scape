@@ -140,7 +140,7 @@ struct UnifiedUsageWindowCard: View {
     private var remainingMetrics: some View {
         VStack(alignment: .trailing, spacing: 6) {
             metricRow(label: "남은 시간", value: window.remainingTimeText, prominent: true)
-            metricRow(label: "남은 비율", value: window.remainingPercentText, prominent: false)
+            metricRow(label: window.remainingPercentLabel, value: window.remainingPercentText, prominent: false)
         }
         .frame(width: mode == .simple ? 128 : 150, alignment: .trailing)
     }
@@ -194,7 +194,7 @@ private struct UsageWindowPieCharts: View {
                 color: window.progressColor
             )
             UsagePieChart(
-                title: "남은 사용량",
+                title: window.usageRemainingLabel,
                 percent: window.usageRemainingPercent,
                 color: window.progressColor
             )

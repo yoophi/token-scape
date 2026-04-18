@@ -26,6 +26,7 @@ Claude Code:
 
 ```text
 ~/.claude/projects/**/*.jsonl
+~/.claude/usage-limits.json
 ```
 
 Codex:
@@ -34,7 +35,17 @@ Codex:
 ~/.codex/sessions/**/*.jsonl
 ```
 
-Codex는 세션 로그의 최신 `rate_limits` 이벤트와 `token_count` 정보를 읽습니다. Claude Code는 assistant 메시지의 `usage` 필드를 집계하고, 5시간/7일 사용 블록을 계산합니다.
+Codex는 세션 로그의 최신 `rate_limits` 이벤트와 `token_count` 정보를 읽습니다.
+
+Claude Code는 Claude Code가 macOS Keychain에 저장한 OAuth 토큰을 읽어 Anthropic OAuth usage API를 우선 조회합니다. OAuth 조회에 실패하면 `~/.claude/token-scope-status.json` statusline 캐시를 사용하고, statusline 캐시가 없으면 `~/.claude/usage-limits.json` ccusage 캐시를 사용합니다. 모두 실패하면 assistant 메시지의 `usage` 필드를 집계하고 5시간/7일 사용 블록을 계산한 로컬 추정값을 표시합니다.
+
+기존 Claude Code statusline 스크립트가 있다면, stdin JSON을 읽은 직후 다음처럼 TokenScope 캐시를 갱신할 수 있습니다.
+
+```bash
+printf '%s' "$input" | /path/to/token-scape/scripts/claude-statusline-cache.sh >/dev/null
+```
+
+캐시 저장 위치를 바꾸려면 `TOKEN_SCOPE_STATUSLINE_CACHE` 환경변수를 설정하세요.
 
 ## 화면 구성
 
@@ -49,6 +60,13 @@ Codex는 세션 로그의 최신 `rate_limits` 이벤트와 `token_count` 정보
 
 - Claude Code: Claude 계열의 따뜻한 오렌지
 - Codex: OpenAI/Codex 계열의 녹색
+
+Claude Code 카드에는 사용량 출처를 표시합니다.
+
+- `OAUTH`: Claude Code Keychain OAuth 토큰 기반 Anthropic usage API
+- `STATUSLINE`: Claude Code statusline JSON 기반 rate limit cache
+- `CCUSAGE`: `~/.claude/usage-limits.json` 기반 실제 usage cache
+- 출처 배지가 없고 `블록 잔여`로 표시되는 경우: 로컬 JSONL 로그 기반 추정
 
 ## 설치 및 실행
 

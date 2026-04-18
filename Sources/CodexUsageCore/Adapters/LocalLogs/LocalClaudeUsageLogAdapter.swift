@@ -5,6 +5,9 @@ public typealias ClaudeUsageReader = LocalClaudeUsageLogAdapter
 public final class LocalClaudeUsageLogAdapter: ClaudeUsageReading {
     private let fileManager: FileManager
     private let projectsDirectory: URL
+    private let oauthReader: ClaudeOAuthUsageReader
+    private let usageLimitsReader: ClaudeUsageLimitsCacheReader
+    private let statuslineReader: ClaudeStatuslineCacheReader
 
     public init(
         claudeHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude"),
@@ -12,13 +15,28 @@ public final class LocalClaudeUsageLogAdapter: ClaudeUsageReading {
     ) {
         self.fileManager = fileManager
         self.projectsDirectory = claudeHome.appendingPathComponent("projects")
+        self.oauthReader = ClaudeOAuthUsageReader()
+        self.usageLimitsReader = ClaudeUsageLimitsCacheReader(claudeHome: claudeHome, fileManager: fileManager)
+        self.statuslineReader = ClaudeStatuslineCacheReader(claudeHome: claudeHome, fileManager: fileManager)
     }
 
     public func snapshot(now: Date = Date()) throws -> ClaudeUsageSnapshot {
-        let entries = try loadEntries()
+        let usageLimits = oauthReader.load() ?? statuslineReader.load(now: now) ?? usageLimitsReader.load()
+        let entries: [ClaudeUsageEntry]
+        do {
+            entries = try loadEntries()
+        } catch {
+            guard usageLimits != nil else {
+                throw error
+            }
+
+            entries = []
+        }
+
         return ClaudeUsageSnapshot(
             fiveHourBlock: currentBlock(entries: entries, window: 5 * 3600, now: now),
             weeklyBlock: currentBlock(entries: entries, window: 7 * 24 * 3600, now: now),
+            usageLimits: usageLimits,
             entryCount: entries.count,
             sourcePath: projectsDirectory.path
         )
