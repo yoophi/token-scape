@@ -154,7 +154,8 @@ struct UnifiedUsageWindowCard: View {
                 .font(.system(size: metricFontSize(prominent: prominent), weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
-                .minimumScaleFactor(prominent ? 0.9 : 0.75)
+                .minimumScaleFactor(prominent ? 0.9 : 1)
+                .frame(width: metricValueWidth(prominent: prominent), alignment: .trailing)
         }
     }
 
@@ -163,6 +164,14 @@ struct UnifiedUsageWindowCard: View {
             return prominent ? 18 : 14
         }
         return prominent ? 22 : 16
+    }
+
+    private func metricValueWidth(prominent: Bool) -> CGFloat {
+        if prominent {
+            return mode == .simple ? 96 : 128
+        }
+
+        return 54
     }
 
     private var detailRows: some View {
@@ -228,8 +237,11 @@ private struct UsagePieChart: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(percentText)
-                    .font(.system(.headline, design: .rounded).weight(.bold))
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(1)
+                    .frame(width: 46, alignment: .leading)
             }
 
             Spacer(minLength: 0)
