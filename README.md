@@ -1,8 +1,8 @@
 # TokenScope
 
-TokenScope는 Claude Code와 Codex의 로컬 사용량을 한 화면에서 확인하는 macOS 데스크탑 앱입니다.
+TokenScope는 Claude Code와 Codex의 사용량을 한 화면에서 확인하는 macOS 데스크탑 앱입니다.
 
-Claude Code와 Codex를 함께 사용하다 보면 각 도구의 사용량, 남은 시간, 주간 한도, 토큰 사용량을 따로 확인해야 합니다. TokenScope는 두 서비스의 로컬 로그를 읽어 공통 포맷으로 정리하고, 왼쪽에는 Claude Code, 오른쪽에는 Codex 정보를 나란히 보여줍니다.
+Claude Code와 Codex를 함께 사용하다 보면 각 도구의 사용량, 남은 시간, 주간 한도, 토큰 사용량을 따로 확인해야 합니다. TokenScope는 OAuth usage API, statusline/ccusage 캐시, 로컬 로그를 우선순위에 따라 읽어 공통 포맷으로 정리하고, 왼쪽에는 Claude Code, 오른쪽에는 Codex 정보를 나란히 보여줍니다.
 
 ![TokenScope 스크린샷](docs/screenshot.png)
 
@@ -36,12 +36,13 @@ Claude Code는 다음 우선순위로 사용량을 읽습니다.
 ```text
 ~/.claude/projects/**/*.jsonl
 ~/.claude/token-scope-oauth-usage.json
+~/.claude/token-scope-oauth-failure.json
 ~/.claude/token-scope-status.json
 ~/.claude/usage-limits.json
 ```
 
 OAuth API 방식은 so-agentbar의 구현 방식을 참고했습니다. TokenScope는 `/usr/bin/security` CLI로 Keychain의 `Claude Code-credentials` 항목을 읽고, 그 안의 `claudeAiOauth.accessToken`을 사용합니다. 토큰 값은 화면이나 로그에 출력하지 않습니다.
-OAuth API rate limit을 피하기 위해 성공한 응답은 `~/.claude/token-scope-oauth-usage.json`에 캐시합니다. 5분 이내의 캐시는 네트워크 호출 없이 사용합니다. API가 429 등으로 실패하면 실패 시각을 기록하고 5분 뒤 다시 OAuth API를 호출합니다. 실패 중에는 최근 30분 OAuth 캐시까지 fallback으로 사용하며, 실패 상태와 재시도까지 남은 시간은 하단 status bar에 표시합니다. 사용자가 새로고침 버튼이나 메뉴바 새로고침을 직접 누른 경우에는 실패 재시도 대기 중이어도 OAuth API를 즉시 다시 호출합니다.
+OAuth API rate limit을 피하기 위해 성공한 응답은 `~/.claude/token-scope-oauth-usage.json`에 캐시합니다. 5분 이내의 캐시는 네트워크 호출 없이 사용합니다. API가 429 등으로 실패하면 `~/.claude/token-scope-oauth-failure.json`에 실패 시각을 기록하고 5분 뒤 다시 OAuth API를 호출합니다. 실패 중에는 최근 30분 OAuth 캐시까지 fallback으로 사용하며, 실패 상태와 재시도까지 남은 시간은 하단 status bar에 표시합니다. 사용자가 새로고침 버튼이나 메뉴바 새로고침을 직접 누른 경우에는 실패 재시도 대기 중이어도 OAuth API를 즉시 다시 호출합니다.
 
 조회하는 Anthropic OAuth API:
 
@@ -137,6 +138,8 @@ make test
 앱은 메뉴바 항목을 제공합니다.
 
 - Codex 남은 비율 표시
+- Codex 정보가 없으면 Claude 5시간 창 남은 시간 표시
+- 둘 다 없으면 `Usage --` 표시
 - 창 열기
 - 새로고침
 - 종료
@@ -148,8 +151,8 @@ make test
 - `Sources/CodexUsageCore/Domain`: 사용량 snapshot과 dashboard state
 - `Sources/CodexUsageCore/Ports`: `CodexUsageReading`, `ClaudeUsageReading`, `DateProviding`
 - `Sources/CodexUsageCore/UseCases`: 사용량 dashboard 로드 use case
-- `Sources/CodexUsageCore/Adapters/LocalLogs`: 로컬 JSONL 로그 reader
-- `Sources/TokenScope`: SwiftUI/AppKit UI, 메뉴바, timer, formatting, 사용자 설정 저장
+- `Sources/CodexUsageCore/Adapters/LocalLogs`: 로컬 JSONL 로그 reader, Claude OAuth/statusline/ccusage cache reader
+- `Sources/TokenScope`: SwiftUI/AppKit UI, 메뉴바, refresh scheduler, formatting, 사용자 설정 저장
 
 SwiftUI 화면은 로그 파일을 직접 파싱하지 않습니다. UI는 use case를 호출하고, use case는 port에 의존하며, 로컬 로그 reader는 교체 가능한 outbound adapter로 분리되어 있습니다.
 
