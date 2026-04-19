@@ -1,7 +1,5 @@
 import Foundation
 
-public typealias ClaudeUsageReader = LocalClaudeUsageLogAdapter
-
 public final class LocalClaudeUsageLogAdapter: ClaudeUsageReading {
     private let fileManager: FileManager
     private let projectsDirectory: URL
@@ -15,13 +13,14 @@ public final class LocalClaudeUsageLogAdapter: ClaudeUsageReading {
     ) {
         self.fileManager = fileManager
         self.projectsDirectory = claudeHome.appendingPathComponent("projects")
-        self.oauthReader = ClaudeOAuthUsageReader()
+        self.oauthReader = ClaudeOAuthUsageReader(claudeHome: claudeHome, fileManager: fileManager)
         self.usageLimitsReader = ClaudeUsageLimitsCacheReader(claudeHome: claudeHome, fileManager: fileManager)
         self.statuslineReader = ClaudeStatuslineCacheReader(claudeHome: claudeHome, fileManager: fileManager)
     }
 
-    public func snapshot(now: Date = Date()) throws -> ClaudeUsageSnapshot {
-        let usageLimits = oauthReader.load() ?? statuslineReader.load(now: now) ?? usageLimitsReader.load()
+    public func snapshot(now: Date = Date(), forceRefresh: Bool = false) throws -> ClaudeUsageSnapshot {
+        let oauthResult = oauthReader.loadWithStatus(now: now, forceRefresh: forceRefresh)
+        let usageLimits = oauthResult.limits ?? statuslineReader.load(now: now) ?? usageLimitsReader.load()
         let entries: [ClaudeUsageEntry]
         do {
             entries = try loadEntries()
@@ -34,9 +33,10 @@ public final class LocalClaudeUsageLogAdapter: ClaudeUsageReading {
         }
 
         return ClaudeUsageSnapshot(
-            fiveHourBlock: currentBlock(entries: entries, window: 5 * 3600, now: now),
-            weeklyBlock: currentBlock(entries: entries, window: 7 * 24 * 3600, now: now),
+            fiveHourBlock: ClaudeUsageBlockComputer.currentBlock(entries: entries, window: 5 * 3600, now: now),
+            weeklyBlock: ClaudeUsageBlockComputer.currentBlock(entries: entries, window: 7 * 24 * 3600, now: now),
             usageLimits: usageLimits,
+            statusMessage: oauthResult.statusMessage,
             entryCount: entries.count,
             sourcePath: projectsDirectory.path
         )
@@ -114,39 +114,6 @@ public final class LocalClaudeUsageLogAdapter: ClaudeUsageReading {
         }
 
         return entries
-    }
-
-    public func computeBlocks(entries: [ClaudeUsageEntry], window: TimeInterval) -> [ClaudeUsageBlock] {
-        guard !entries.isEmpty else {
-            return []
-        }
-
-        var blocks: [ClaudeUsageBlock] = []
-        var start = entries[0].timestamp
-        var bucket: [ClaudeUsageEntry] = []
-
-        for entry in entries {
-            let end = start.addingTimeInterval(window)
-            if entry.timestamp < end {
-                bucket.append(entry)
-            } else {
-                if !bucket.isEmpty {
-                    blocks.append(ClaudeUsageBlock(start: start, end: end, entries: bucket))
-                }
-                start = entry.timestamp
-                bucket = [entry]
-            }
-        }
-
-        if !bucket.isEmpty {
-            blocks.append(ClaudeUsageBlock(start: start, end: start.addingTimeInterval(window), entries: bucket))
-        }
-
-        return blocks
-    }
-
-    public func currentBlock(entries: [ClaudeUsageEntry], window: TimeInterval, now: Date = Date()) -> ClaudeUsageBlock? {
-        computeBlocks(entries: entries, window: window).last { $0.isActive(at: now) }
     }
 
     private func int(_ value: Any?) -> Int {

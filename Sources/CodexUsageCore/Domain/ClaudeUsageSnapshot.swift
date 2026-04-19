@@ -63,6 +63,7 @@ public struct ClaudeUsageSnapshot: Equatable, Sendable {
     public let fiveHourBlock: ClaudeUsageBlock?
     public let weeklyBlock: ClaudeUsageBlock?
     public let usageLimits: ClaudeUsageLimits?
+    public let statusMessage: String?
     public let entryCount: Int
     public let sourcePath: String
     public let loadedAt: Date
@@ -71,6 +72,7 @@ public struct ClaudeUsageSnapshot: Equatable, Sendable {
         fiveHourBlock: ClaudeUsageBlock?,
         weeklyBlock: ClaudeUsageBlock?,
         usageLimits: ClaudeUsageLimits? = nil,
+        statusMessage: String? = nil,
         entryCount: Int,
         sourcePath: String,
         loadedAt: Date = Date()
@@ -78,6 +80,7 @@ public struct ClaudeUsageSnapshot: Equatable, Sendable {
         self.fiveHourBlock = fiveHourBlock
         self.weeklyBlock = weeklyBlock
         self.usageLimits = usageLimits
+        self.statusMessage = statusMessage
         self.entryCount = entryCount
         self.sourcePath = sourcePath
         self.loadedAt = loadedAt

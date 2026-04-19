@@ -63,7 +63,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusMenu = menu
 
         store.onCodexChange = { [weak self] snapshot in
-            self?.updateStatusTitle(snapshot)
+            self?.updateStatusTitle(codex: snapshot, claude: self?.store.claudeSnapshot)
+        }
+        store.onClaudeChange = { [weak self] snapshot in
+            self?.updateStatusTitle(codex: self?.store.codexSnapshot, claude: snapshot)
         }
         store.onAlwaysOnTopChange = { [weak self] isAlwaysOnTop in
             self?.setAlwaysOnTop(isAlwaysOnTop)
@@ -72,7 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self?.resizeWindow(for: viewMode)
         }
         setAlwaysOnTop(store.isAlwaysOnTop)
-        updateStatusTitle(store.codexSnapshot)
+        updateStatusTitle(codex: store.codexSnapshot, claude: store.claudeSnapshot)
     }
 
     private func resizeWindow(for viewMode: UsageViewMode) {
@@ -110,21 +113,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private static func defaultWindowSize(for viewMode: UsageViewMode) -> NSSize {
-        switch viewMode {
-        case .simple:
-            return NSSize(width: 960, height: 560)
-        case .detailed:
-            return NSSize(width: 1_180, height: 820)
-        }
+        let size = ViewportSizing.metrics(for: viewMode).defaultSize
+        return NSSize(width: size.width, height: size.height)
     }
 
     private static func minimumWindowSize(for viewMode: UsageViewMode) -> NSSize {
-        switch viewMode {
-        case .simple:
-            return NSSize(width: 900, height: 500)
-        case .detailed:
-            return NSSize(width: 1_080, height: 680)
-        }
+        let size = ViewportSizing.metrics(for: viewMode).minimumSize
+        return NSSize(width: size.width, height: size.height)
     }
 
     private func saveCurrentWindowSize() {
@@ -136,13 +131,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         preferencesStore.saveWindowSize(contentSize, for: store.viewMode)
     }
 
-    private func updateStatusTitle(_ snapshot: UsageSnapshot?) {
+    private func updateStatusTitle(codex snapshot: UsageSnapshot?, claude: ClaudeUsageSnapshot?) {
         let remainingValues = [snapshot?.primary?.remainingPercent, snapshot?.secondary?.remainingPercent].compactMap { $0 }
         if let remaining = remainingValues.min() {
             statusItem?.button?.title = "Codex \(Int(remaining.rounded()))%"
+        } else if let claudeText = claudeMenuBarText(claude) {
+            statusItem?.button?.title = claudeText
         } else {
-            statusItem?.button?.title = "Usage"
+            statusItem?.button?.title = "Usage --"
         }
+    }
+
+    private func claudeMenuBarText(_ snapshot: ClaudeUsageSnapshot?) -> String? {
+        guard let snapshot else {
+            return nil
+        }
+
+        if let reset = snapshot.usageLimits?.fiveHour?.resetsAt {
+            return "Claude \(UsageFormatters.hoursMinutesSeconds(reset.timeIntervalSinceNow))"
+        }
+
+        if let block = snapshot.fiveHourBlock {
+            return "Claude \(UsageFormatters.hoursMinutesSeconds(block.timeRemaining(from: Date())))"
+        }
+
+        return nil
     }
 
     @objc private func toggleWindow() {
@@ -162,7 +175,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func refresh() {
-        store.refresh()
+        store.refresh(forceRefresh: true)
     }
 
     @objc private func quit() {

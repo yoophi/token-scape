@@ -5,7 +5,7 @@ public protocol CodexUsageReading {
 }
 
 public protocol ClaudeUsageReading {
-    func snapshot(now: Date) throws -> ClaudeUsageSnapshot
+    func snapshot(now: Date, forceRefresh: Bool) throws -> ClaudeUsageSnapshot
 }
 
 public protocol DateProviding {

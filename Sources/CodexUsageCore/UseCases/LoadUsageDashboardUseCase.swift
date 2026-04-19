@@ -15,11 +15,11 @@ public final class LoadUsageDashboardUseCase {
         self.clock = clock
     }
 
-    public func execute() -> UsageDashboardSnapshot {
+    public func execute(forceRefresh: Bool = false) -> UsageDashboardSnapshot {
         let now = clock.now
         return UsageDashboardSnapshot(
             codex: loadCodex(),
-            claude: loadClaude(now: now),
+            claude: loadClaude(now: now, forceRefresh: forceRefresh),
             loadedAt: now
         )
     }
@@ -32,9 +32,9 @@ public final class LoadUsageDashboardUseCase {
         }
     }
 
-    private func loadClaude(now: Date) -> UsageSource<ClaudeUsageSnapshot> {
+    private func loadClaude(now: Date, forceRefresh: Bool) -> UsageSource<ClaudeUsageSnapshot> {
         do {
-            return .loaded(try claudeReader.snapshot(now: now))
+            return .loaded(try claudeReader.snapshot(now: now, forceRefresh: forceRefresh))
         } catch {
             return .failed(error.localizedDescription)
         }

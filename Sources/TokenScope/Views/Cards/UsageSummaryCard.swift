@@ -277,7 +277,7 @@ struct UnifiedTokenBreakdownCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("토큰")
+                Text(tokens.title)
                     .font(.headline)
                 Spacer()
                 Text(UsageFormatters.tokens(tokens.total))
@@ -291,9 +291,18 @@ struct UnifiedTokenBreakdownCard: View {
             }
 
             HStack(spacing: 10) {
-                TokenChip(label: "Cache W", value: tokens.cacheWrite, color: .pink)
-                TokenChip(label: "Cache R", value: tokens.cacheRead + tokens.cachedInput, color: .teal)
-                TokenChip(label: "Reasoning", value: tokens.reasoning, color: .purple)
+                if tokens.cacheWrite > 0 {
+                    TokenChip(label: "Cache W", value: tokens.cacheWrite, color: .pink)
+                }
+                if tokens.cacheRead > 0 {
+                    TokenChip(label: "Cache R", value: tokens.cacheRead, color: .teal)
+                }
+                if tokens.cachedInput > 0 {
+                    TokenChip(label: "Cached In", value: tokens.cachedInput, color: .teal)
+                }
+                if tokens.reasoning > 0 {
+                    TokenChip(label: "Reasoning", value: tokens.reasoning, color: .purple)
+                }
             }
 
             if let recentTotal = tokens.recentTotal {

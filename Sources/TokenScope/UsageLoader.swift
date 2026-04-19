@@ -1,7 +1,7 @@
 import CodexUsageCore
 
 protocol UsageDashboardLoading: Sendable {
-    func load() -> UsageDashboardSnapshot
+    func load(forceRefresh: Bool) -> UsageDashboardSnapshot
 }
 
 struct LiveUsageLoader: UsageDashboardLoading, @unchecked Sendable {
@@ -11,7 +11,7 @@ struct LiveUsageLoader: UsageDashboardLoading, @unchecked Sendable {
         self.useCase = useCase
     }
 
-    func load() -> UsageDashboardSnapshot {
-        useCase.execute()
+    func load(forceRefresh: Bool) -> UsageDashboardSnapshot {
+        useCase.execute(forceRefresh: forceRefresh)
     }
 }

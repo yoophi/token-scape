@@ -7,6 +7,7 @@ final class UsageStore: ObservableObject {
     @Published private(set) var codexError: String?
     @Published private(set) var claudeSnapshot: ClaudeUsageSnapshot?
     @Published private(set) var claudeError: String?
+    @Published private(set) var claudeStatusMessage: String?
     @Published private(set) var lastRefresh: Date = .distantPast
     @Published private(set) var isLoading = false
     @Published private(set) var nextAutoRefreshAt: Date?
@@ -40,6 +41,7 @@ final class UsageStore: ObservableObject {
     private let scheduler: any RefreshScheduling
     private let preferencesStore: UserPreferencesStore
     var onCodexChange: ((UsageSnapshot?) -> Void)?
+    var onClaudeChange: ((ClaudeUsageSnapshot?) -> Void)?
     var onAlwaysOnTopChange: ((Bool) -> Void)?
     var onViewModeChange: ((UsageViewMode) -> Void)?
 
@@ -82,7 +84,7 @@ final class UsageStore: ObservableObject {
         configureRefreshTimer()
     }
 
-    func refresh() {
+    func refresh(forceRefresh: Bool = false) {
         guard !isLoading else {
             return
         }
@@ -90,7 +92,7 @@ final class UsageStore: ObservableObject {
         isLoading = true
         let loader = self.loader
         Task.detached(priority: .userInitiated) {
-            let combined = loader.load()
+            let combined = loader.load(forceRefresh: forceRefresh)
             await MainActor.run {
                 self.apply(combined)
             }
@@ -98,14 +100,21 @@ final class UsageStore: ObservableObject {
     }
 
     private func apply(_ combined: UsageDashboardSnapshot) {
-        codexSnapshot = combined.codex.value
+        if let codexValue = combined.codex.value {
+            codexSnapshot = codexValue
+        }
         codexError = combined.codex.errorMessage
-        claudeSnapshot = combined.claude.value
+
+        if let claudeValue = combined.claude.value {
+            claudeSnapshot = claudeValue
+            claudeStatusMessage = claudeValue.statusMessage
+        }
         claudeError = combined.claude.errorMessage
         lastRefresh = combined.loadedAt
         isLoading = false
         scheduleNextAutoRefresh()
-        onCodexChange?(combined.codex.value)
+        onCodexChange?(codexSnapshot)
+        onClaudeChange?(claudeSnapshot)
     }
 
     private func configureRefreshTimer() {

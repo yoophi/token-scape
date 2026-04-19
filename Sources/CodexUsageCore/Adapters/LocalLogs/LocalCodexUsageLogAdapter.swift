@@ -1,7 +1,5 @@
 import Foundation
 
-public typealias CodexUsageReader = LocalCodexUsageLogAdapter
-
 public final class LocalCodexUsageLogAdapter: CodexUsageReading {
     private let fileManager: FileManager
     private let sessionsDirectory: URL

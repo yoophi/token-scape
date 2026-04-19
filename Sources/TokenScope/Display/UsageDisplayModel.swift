@@ -108,6 +108,7 @@ struct UsageDetailRow: Identifiable {
 }
 
 struct TokenBreakdownDisplay {
+    let title: String
     let total: Int
     let input: Int
     let output: Int
@@ -128,6 +129,7 @@ enum UsageDisplayMapper {
             weeklyWindow: codexWindow("주간 창", "긴 기간 사용량", limit: snapshot.secondary, now: now, usesClockDuration: false),
             tokens: snapshot.totalTokenUsage.map { usage in
                 TokenBreakdownDisplay(
+                    title: "토큰",
                     total: usage.totalTokens,
                     input: usage.inputTokens,
                     output: usage.outputTokens,
@@ -366,12 +368,19 @@ enum UsageDisplayMapper {
     }
 
     private static func claudeTokens(_ snapshot: ClaudeUsageSnapshot) -> TokenBreakdownDisplay? {
-        let blocks = [snapshot.fiveHourBlock, snapshot.weeklyBlock].compactMap { $0 }
-        guard let block = blocks.max(by: { $0.totalTokens < $1.totalTokens }) else {
+        let candidates = [
+            (label: "5시간 블록 토큰", block: snapshot.fiveHourBlock),
+            (label: "7일 블록 토큰", block: snapshot.weeklyBlock)
+        ].compactMap { item in
+            item.block.map { (label: item.label, block: $0) }
+        }
+        guard let selected = candidates.max(by: { $0.block.totalTokens < $1.block.totalTokens }) else {
             return nil
         }
+        let block = selected.block
 
         return TokenBreakdownDisplay(
+            title: selected.label,
             total: block.totalTokens,
             input: block.inputTokens,
             output: block.outputTokens,

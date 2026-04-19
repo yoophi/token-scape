@@ -24,23 +24,27 @@ struct ContentView: View {
     }
 
     private var contentMinimumWidth: CGFloat {
-        store.viewMode == .simple ? 900 : 1_080
+        metrics.minimumSize.width
     }
 
     private var contentMinimumHeight: CGFloat {
-        store.viewMode == .simple ? 500 : 760
+        metrics.minimumSize.height
     }
 
     private var contentPadding: CGFloat {
-        store.viewMode == .simple ? 16 : 24
+        metrics.contentPadding
     }
 
     private var bodySpacing: CGFloat {
-        store.viewMode == .simple ? 12 : 18
+        metrics.bodySpacing
+    }
+
+    private var metrics: ViewportSizing.Metrics {
+        ViewportSizing.metrics(for: store.viewMode)
     }
 
     private var usageColumns: some View {
-        HStack(alignment: .top, spacing: store.viewMode == .simple ? 12 : 18) {
+        HStack(alignment: .top, spacing: metrics.columnSpacing) {
             productColumn(
                 title: "Claude Code",
                 errorTitle: "Claude Code 사용량 정보를 찾지 못했습니다.",
@@ -49,7 +53,7 @@ struct ContentView: View {
             )
 
             Divider()
-                .frame(minHeight: store.viewMode == .simple ? 300 : 640)
+                .frame(minHeight: metrics.dividerMinimumHeight)
 
             productColumn(
                 title: "Codex",
@@ -114,7 +118,7 @@ struct ContentView: View {
             .frame(width: 150)
 
             Button {
-                store.refresh()
+                store.refresh(forceRefresh: true)
             } label: {
                 if store.isLoading {
                     ProgressView()
@@ -151,6 +155,13 @@ struct ContentView: View {
     private var footer: some View {
         HStack {
             Text("마지막 업데이트: \(store.lastRefresh == .distantPast ? "-" : UsageFormatters.clock(store.lastRefresh))")
+            if let claudeStatus = store.claudeStatusMessage {
+                Divider()
+                    .frame(height: 10)
+                Text(claudeStatus)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
             Spacer()
             Text(refreshStatus)
         }

@@ -75,7 +75,7 @@ private struct StubClaudeReader: ClaudeUsageReading {
     var snapshot: ClaudeUsageSnapshot?
     var error: Error?
 
-    func snapshot(now: Date) throws -> ClaudeUsageSnapshot {
+    func snapshot(now: Date, forceRefresh: Bool) throws -> ClaudeUsageSnapshot {
         if let error {
             throw error
         }
@@ -255,6 +255,22 @@ runner.test("ClaudeOAuthUsageReader parses usage and account responses") {
     try runner.expect(limits.fiveHour?.usedPercent == 12.25, "five hour utilization should parse")
     try runner.expect(limits.sevenDay?.remainingPercent == 12, "seven day remaining should parse")
     try runner.expect(limits.extraUsage?.isEnabled == false, "extra usage enabled should parse")
+}
+
+runner.test("ClaudeUsageBlockComputer splits entries on window boundaries") {
+    let start = Date(timeIntervalSince1970: 1_000)
+    let entries = [
+        ClaudeUsageEntry(id: "1", timestamp: start, model: "claude", inputTokens: 1, outputTokens: 1, cacheCreationTokens: 0, cacheReadTokens: 0),
+        ClaudeUsageEntry(id: "2", timestamp: start.addingTimeInterval(50), model: "claude", inputTokens: 2, outputTokens: 2, cacheCreationTokens: 0, cacheReadTokens: 0),
+        ClaudeUsageEntry(id: "3", timestamp: start.addingTimeInterval(150), model: "claude", inputTokens: 3, outputTokens: 3, cacheCreationTokens: 0, cacheReadTokens: 0)
+    ]
+
+    let blocks = ClaudeUsageBlockComputer.computeBlocks(entries: entries, window: 100)
+
+    try runner.expect(blocks.count == 2, "entries should split into two blocks")
+    try runner.expect(blocks[0].messageCount == 2, "first block should contain first two entries")
+    try runner.expect(blocks[1].messageCount == 1, "second block should contain final entry")
+    try runner.expect(ClaudeUsageBlockComputer.currentBlock(entries: entries, window: 100, now: start.addingTimeInterval(175))?.messageCount == 1, "current block should be selected by now")
 }
 
 exit(runner.finish())
