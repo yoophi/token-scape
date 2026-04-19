@@ -36,13 +36,14 @@ Claude Code는 다음 우선순위로 사용량을 읽습니다.
 ```text
 ~/.claude/projects/**/*.jsonl
 ~/.claude/token-scope-oauth-usage.json
+~/.claude/token-scope-oauth-plan.json
 ~/.claude/token-scope-oauth-failure.json
 ~/.claude/token-scope-status.json
 ~/.claude/usage-limits.json
 ```
 
 OAuth API 방식은 so-agentbar의 구현 방식을 참고했습니다. TokenScope는 `/usr/bin/security` CLI로 Keychain의 `Claude Code-credentials` 항목을 읽고, 그 안의 `claudeAiOauth.accessToken`을 사용합니다. 토큰 값은 화면이나 로그에 출력하지 않습니다.
-OAuth API rate limit을 피하기 위해 성공한 응답은 `~/.claude/token-scope-oauth-usage.json`에 캐시합니다. 5분 이내의 캐시는 네트워크 호출 없이 사용합니다. API가 429 등으로 실패하면 `~/.claude/token-scope-oauth-failure.json`에 실패 시각을 기록하고 5분 뒤 다시 OAuth API를 호출합니다. 실패 중에는 최근 30분 OAuth 캐시까지 fallback으로 사용하며, 실패 상태와 재시도까지 남은 시간은 하단 status bar에 표시합니다. 사용자가 새로고침 버튼이나 메뉴바 새로고침을 직접 누른 경우에는 실패 재시도 대기 중이어도 OAuth API를 즉시 다시 호출합니다.
+OAuth API rate limit을 피하기 위해 성공한 usage 응답은 `~/.claude/token-scope-oauth-usage.json`에 캐시합니다. 5분 이내의 캐시는 네트워크 호출 없이 사용합니다. 플랜명은 `~/.claude/token-scope-oauth-plan.json`에 별도로 캐시하고 24시간 동안 재사용합니다. API가 429 등으로 실패하면 `~/.claude/token-scope-oauth-failure.json`에 실패 시각을 기록하고 5분 뒤 다시 OAuth API를 호출합니다. 429 응답에 `Retry-After` 헤더가 있으면 해당 값을 우선 사용합니다. 401/403은 자동 재시도하지 않고 재인증 필요 상태로 표시합니다. 실패 중에는 최근 30분 OAuth 캐시까지 fallback으로 사용하며, 실패 상태와 재시도까지 남은 시간은 하단 status bar에 표시합니다. 사용자가 새로고침 버튼이나 메뉴바 새로고침을 직접 누른 경우에는 실패 재시도 대기 중이어도 OAuth API를 즉시 다시 호출합니다.
 
 조회하는 Anthropic OAuth API:
 
