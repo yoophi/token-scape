@@ -1,5 +1,5 @@
 import AppKit
-import CodexUsageCore
+import TokenScopeCore
 import SwiftUI
 
 @MainActor

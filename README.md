@@ -149,10 +149,10 @@ make test
 
 프로젝트는 작은 hexagonal architecture 기반으로 구성되어 있습니다.
 
-- `Sources/CodexUsageCore/Domain`: 사용량 snapshot과 dashboard state
-- `Sources/CodexUsageCore/Ports`: `CodexUsageReading`, `ClaudeUsageReading`, `DateProviding`
-- `Sources/CodexUsageCore/UseCases`: 사용량 dashboard 로드 use case
-- `Sources/CodexUsageCore/Adapters/LocalLogs`: 로컬 JSONL 로그 reader, Claude OAuth/statusline/ccusage cache reader
+- `Sources/TokenScopeCore/Domain`: 사용량 snapshot과 dashboard state
+- `Sources/TokenScopeCore/Ports`: `CodexUsageReading`, `ClaudeUsageReading`, `DateProviding`
+- `Sources/TokenScopeCore/UseCases`: 사용량 dashboard 로드 use case
+- `Sources/TokenScopeCore/Adapters/LocalLogs`: 로컬 JSONL 로그 reader, Claude OAuth/statusline/ccusage cache reader
 - `Sources/TokenScope`: SwiftUI/AppKit UI, 메뉴바, refresh scheduler, formatting, 사용자 설정 저장
 
 SwiftUI 화면은 로그 파일을 직접 파싱하지 않습니다. UI는 use case를 호출하고, use case는 port에 의존하며, 로컬 로그 reader는 교체 가능한 outbound adapter로 분리되어 있습니다.

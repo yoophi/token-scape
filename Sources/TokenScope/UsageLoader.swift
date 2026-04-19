@@ -1,4 +1,4 @@
-import CodexUsageCore
+import TokenScopeCore
 
 protocol UsageDashboardLoading: Sendable {
     func load(forceRefresh: Bool) -> UsageDashboardSnapshot

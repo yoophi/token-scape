@@ -1,4 +1,4 @@
-import CodexUsageCore
+import TokenScopeCore
 import SwiftUI
 
 extension Color {

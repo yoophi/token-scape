@@ -9,17 +9,17 @@ let package = Package(
     ],
     products: [
         .executable(name: "TokenScope", targets: ["TokenScope"]),
-        .library(name: "CodexUsageCore", targets: ["CodexUsageCore"])
+        .library(name: "TokenScopeCore", targets: ["TokenScopeCore"])
     ],
     targets: [
-        .target(name: "CodexUsageCore"),
+        .target(name: "TokenScopeCore"),
         .executableTarget(
             name: "TokenScope",
-            dependencies: ["CodexUsageCore"]
+            dependencies: ["TokenScopeCore"]
         ),
         .executableTarget(
             name: "UsageTests",
-            dependencies: ["CodexUsageCore"],
+            dependencies: ["TokenScopeCore"],
             path: "Tests/UsageTests"
         )
     ]

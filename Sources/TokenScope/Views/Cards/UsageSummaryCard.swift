@@ -142,7 +142,7 @@ struct UnifiedUsageWindowCard: View {
             metricRow(label: "남은 시간", value: window.remainingTimeText, prominent: true)
             metricRow(label: window.remainingPercentLabel, value: window.remainingPercentText, prominent: false)
         }
-        .frame(width: mode == .simple ? 128 : 150, alignment: .trailing)
+        .frame(width: mode == .simple ? 128 : 176, alignment: .trailing)
     }
 
     private func metricRow(label: String, value: String, prominent: Bool) -> some View {
@@ -154,7 +154,7 @@ struct UnifiedUsageWindowCard: View {
                 .font(.system(size: metricFontSize(prominent: prominent), weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .minimumScaleFactor(prominent ? 0.9 : 0.75)
         }
     }
 

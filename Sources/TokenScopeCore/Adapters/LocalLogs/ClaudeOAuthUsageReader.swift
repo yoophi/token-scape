@@ -1,9 +1,10 @@
 import Foundation
 
+public typealias ClaudeOAuthHTTPPerform = (URLRequest) -> (data: Data?, response: HTTPURLResponse?, error: Error?)
+
 public struct ClaudeOAuthUsageReader {
     private let tokenProvider: () throws -> String
-    private let session: URLSession
-    private let timeout: TimeInterval
+    private let httpPerform: ClaudeOAuthHTTPPerform
     private let fileManager: FileManager
     private let cacheURL: URL
     private let planCacheURL: URL
@@ -24,8 +25,7 @@ public struct ClaudeOAuthUsageReader {
         planCacheAge: TimeInterval = 24 * 60 * 60
     ) {
         self.tokenProvider = tokenProvider
-        self.session = session
-        self.timeout = timeout
+        self.httpPerform = Self.defaultHTTPPerform(session: session, timeout: timeout)
         self.fileManager = fileManager
         self.cacheURL = claudeHome.appendingPathComponent("token-scope-oauth-usage.json")
         self.planCacheURL = claudeHome.appendingPathComponent("token-scope-oauth-plan.json")
@@ -44,11 +44,11 @@ public struct ClaudeOAuthUsageReader {
         freshCacheAge: TimeInterval = 5 * 60,
         staleCacheAge: TimeInterval = 30 * 60,
         retryInterval: TimeInterval = 5 * 60,
-        planCacheAge: TimeInterval = 24 * 60 * 60
+        planCacheAge: TimeInterval = 24 * 60 * 60,
+        httpPerform: ClaudeOAuthHTTPPerform? = nil
     ) {
         self.tokenProvider = tokenProvider
-        self.session = session
-        self.timeout = timeout
+        self.httpPerform = httpPerform ?? Self.defaultHTTPPerform(session: session, timeout: timeout)
         self.fileManager = fileManager
         self.cacheURL = cacheURL
         self.planCacheURL = cacheURL.deletingLastPathComponent().appendingPathComponent("token-scope-oauth-plan.json")
@@ -93,10 +93,11 @@ public struct ClaudeOAuthUsageReader {
 
         let usageResponse = requestJSON(url: "https://api.anthropic.com/api/oauth/usage", token: token)
         guard let usageJSON = usageResponse.json else {
-            saveFailure(message: usageResponse.message, now: now, retryAfter: retryDelay(for: usageResponse))
+            let statusMessage = failureStatusMessage(for: usageResponse, forceRefresh: forceRefresh)
+            saveFailure(message: statusMessage, now: now, retryAfter: retryDelay(for: usageResponse))
             return ClaudeOAuthUsageLoadResult(
                 limits: loadCached(now: now, maximumAge: staleCacheAge),
-                statusMessage: failureStatusMessage(for: usageResponse, forceRefresh: forceRefresh)
+                statusMessage: statusMessage
             )
         }
 
@@ -342,45 +343,50 @@ public struct ClaudeOAuthUsageReader {
         }
 
         var request = URLRequest(url: url)
-        request.timeoutInterval = timeout
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
 
-        let result = OAuthHTTPResultBox()
-        let semaphore = DispatchSemaphore(value: 0)
-        session.dataTask(with: request) { data, response, error in
-            defer { semaphore.signal() }
+        let (data, response, error) = httpPerform(request)
 
-            if let error {
-                result.value = OAuthHTTPResult(json: nil, kind: .transport, message: networkErrorMessage(error))
-                return
-            }
+        if let error {
+            return OAuthHTTPResult(json: nil, kind: .transport, message: networkErrorMessage(error))
+        }
 
-            guard let http = response as? HTTPURLResponse else {
-                result.value = OAuthHTTPResult(json: nil, kind: .invalidResponse, message: "응답 오류")
-                return
-            }
+        guard let http = response else {
+            return OAuthHTTPResult(json: nil, kind: .invalidResponse, message: "응답 오류")
+        }
 
-            guard http.statusCode == 200 else {
-                result.value = OAuthHTTPResult(
-                    json: nil,
-                    kind: OAuthHTTPResult.Kind(statusCode: http.statusCode),
-                    message: "HTTP \(http.statusCode)",
-                    retryAfter: retryAfter(from: http)
-                )
-                return
-            }
+        guard http.statusCode == 200 else {
+            return OAuthHTTPResult(
+                json: nil,
+                kind: OAuthHTTPResult.Kind(statusCode: http.statusCode),
+                message: "HTTP \(http.statusCode)",
+                retryAfter: retryAfter(from: http)
+            )
+        }
 
-            guard let data, let json = ClaudeUsageLimitParsing.jsonDictionary(from: data) else {
-                result.value = OAuthHTTPResult(json: nil, kind: .parseError, message: "파싱 오류")
-                return
-            }
+        guard let data, let json = ClaudeUsageLimitParsing.jsonDictionary(from: data) else {
+            return OAuthHTTPResult(json: nil, kind: .parseError, message: "파싱 오류")
+        }
 
-            result.value = OAuthHTTPResult(json: json, kind: .success, message: "성공")
-        }.resume()
+        return OAuthHTTPResult(json: json, kind: .success, message: "성공")
+    }
 
-        _ = semaphore.wait(timeout: .now() + timeout + 1)
-        return result.value
+    private static func defaultHTTPPerform(session: URLSession, timeout: TimeInterval) -> ClaudeOAuthHTTPPerform {
+        { request in
+            var request = request
+            request.timeoutInterval = timeout
+            let result = OAuthHTTPResultBox()
+            let semaphore = DispatchSemaphore(value: 0)
+            session.dataTask(with: request) { data, response, error in
+                defer { semaphore.signal() }
+
+                result.value = (data, response as? HTTPURLResponse, error)
+            }.resume()
+
+            _ = semaphore.wait(timeout: .now() + timeout + 1)
+            return result.value
+        }
     }
 
     private func parseWindow(_ value: Any?) -> ClaudeUsageLimits.Window? {
@@ -493,9 +499,13 @@ private struct OAuthHTTPResult {
 
 private final class OAuthHTTPResultBox: @unchecked Sendable {
     private let lock = NSLock()
-    private var storedValue = OAuthHTTPResult(json: nil, kind: .timeout, message: "시간 초과")
+    private var storedValue: (data: Data?, response: HTTPURLResponse?, error: Error?)
 
-    var value: OAuthHTTPResult {
+    init() {
+        storedValue = (nil, nil, URLError(.timedOut))
+    }
+
+    var value: (data: Data?, response: HTTPURLResponse?, error: Error?) {
         get {
             lock.lock()
             defer { lock.unlock() }
